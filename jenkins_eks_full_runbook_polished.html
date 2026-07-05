@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Jenkins CI/CD to AWS EKS Runbook</title>
+  <style>
+    :root {
+      --bg:#0b1220; --panel:#111827; --panel2:#0f172a; --text:#e5e7eb; --muted:#9ca3af;
+      --brand:#38bdf8; --brand2:#22c55e; --warn:#f59e0b; --danger:#ef4444; --line:#243244;
+      --code:#060b14; --paper:#f8fafc; --ink:#0f172a;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family: Inter, Segoe UI, Roboto, Arial, sans-serif; background:linear-gradient(135deg,#07101f,#111827 35%,#0b1220); color:var(--text); line-height:1.6; }
+    a { color:#7dd3fc; }
+    .layout { display:grid; grid-template-columns: 300px 1fr; min-height:100vh; }
+    aside { position:sticky; top:0; height:100vh; overflow:auto; padding:26px 22px; border-right:1px solid var(--line); background:rgba(8,13,26,.96); }
+    aside h2 { margin:0 0 8px; font-size:18px; }
+    aside p { color:var(--muted); margin:0 0 18px; font-size:13px; }
+    .toc a { display:block; padding:8px 10px; margin:2px 0; border-radius:10px; color:#cbd5e1; text-decoration:none; font-size:14px; }
+    .toc a:hover { background:#172033; color:white; }
+    main { max-width:1120px; padding:42px 52px 80px; }
+    .hero { padding:34px; border:1px solid #1f3a52; border-radius:28px; background: radial-gradient(circle at top right, rgba(56,189,248,.22), transparent 34%), linear-gradient(135deg,rgba(17,24,39,.95),rgba(15,23,42,.82)); box-shadow:0 30px 80px rgba(0,0,0,.35); }
+    .eyebrow { display:inline-flex; gap:8px; align-items:center; padding:6px 12px; border:1px solid #24506b; border-radius:999px; background:#0f2134; color:#bae6fd; font-size:13px; font-weight:700; }
+    h1 { margin:18px 0 8px; font-size:44px; line-height:1.08; letter-spacing:-.03em; }
+    .subtitle { color:#cbd5e1; max-width:860px; font-size:18px; }
+    h2 { margin:46px 0 14px; padding-top:10px; font-size:30px; letter-spacing:-.02em; border-top:1px solid var(--line); }
+    h3 { margin:28px 0 10px; font-size:22px; color:#e0f2fe; }
+    h4 { margin:20px 0 8px; color:#bbf7d0; }
+    p { color:#d1d5db; }
+    .grid { display:grid; gap:14px; }
+    .grid.cols-2 { grid-template-columns: repeat(2,minmax(0,1fr)); }
+    .grid.cols-3 { grid-template-columns: repeat(3,minmax(0,1fr)); }
+    .card { background:rgba(15,23,42,.78); border:1px solid var(--line); border-radius:18px; padding:18px; }
+    .card h3, .card h4 { margin-top:0; }
+    .flow { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:22px 0; }
+    .pill { border:1px solid #21445c; background:#0b2135; padding:10px 14px; border-radius:999px; font-weight:700; color:#e0f2fe; }
+    .arrow { color:#38bdf8; font-weight:900; }
+    table { width:100%; border-collapse:collapse; margin:18px 0; background:rgba(15,23,42,.65); border:1px solid var(--line); border-radius:16px; overflow:hidden; }
+    th, td { padding:12px 14px; border-bottom:1px solid var(--line); vertical-align:top; }
+    th { text-align:left; background:#111d31; color:#e0f2fe; }
+    tr:last-child td { border-bottom:0; }
+    .callout { border:1px solid; border-radius:16px; padding:16px 18px; margin:18px 0; }
+    .callout p { margin:6px 0 0; }
+    .callout.info { background:rgba(56,189,248,.08); border-color:rgba(56,189,248,.35); }
+    .callout.good { background:rgba(34,197,94,.08); border-color:rgba(34,197,94,.35); }
+    .callout.warn { background:rgba(245,158,11,.08); border-color:rgba(245,158,11,.40); }
+    .callout.danger { background:rgba(239,68,68,.08); border-color:rgba(239,68,68,.40); }
+    .pathbox { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:#07111f; border:1px dashed #36516a; border-radius:14px; padding:14px; color:#bfdbfe; margin:12px 0; }
+    .code-wrap { border:1px solid #233348; border-radius:16px; overflow:hidden; margin:14px 0 20px; background:var(--code); box-shadow: inset 0 1px rgba(255,255,255,.03); }
+    .code-head { display:flex; justify-content:space-between; align-items:center; padding:9px 12px; background:#0c1728; color:#93c5fd; font-size:12px; border-bottom:1px solid #1e293b; }
+    .code-head button { border:1px solid #334155; border-radius:999px; padding:4px 10px; background:#111827; color:#cbd5e1; cursor:pointer; }
+    pre { margin:0; padding:16px 18px; overflow:auto; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color:#dbeafe; font-size:13.5px; }
+    .step { display:flex; gap:16px; align-items:flex-start; }
+    .num { flex:0 0 38px; height:38px; border-radius:12px; display:grid; place-items:center; background:linear-gradient(135deg,#38bdf8,#22c55e); color:#02111f; font-weight:900; }
+    .checklist { columns:2; list-style:none; padding:0; }
+    .checklist li { break-inside:avoid; padding:7px 0 7px 28px; position:relative; color:#d1fae5; }
+    .checklist li:before { content:'✓'; position:absolute; left:0; color:#22c55e; font-weight:900; }
+    .footer { margin-top:60px; padding-top:22px; border-top:1px solid var(--line); color:var(--muted); font-size:13px; }
+    .print { position:fixed; right:22px; bottom:22px; padding:12px 16px; border-radius:999px; border:1px solid #2d526a; background:#0f2134; color:#e0f2fe; cursor:pointer; box-shadow:0 16px 40px rgba(0,0,0,.35); }
+    @media (max-width: 980px) { .layout { grid-template-columns:1fr; } aside { position:relative; height:auto; } main { padding:28px 18px 60px; } h1 { font-size:34px; } .grid.cols-2,.grid.cols-3 { grid-template-columns:1fr; } .checklist { columns:1; } }
+    @media print { body { background:white; color:#111827; } aside,.print,.code-head button { display:none; } .layout { display:block; } main { max-width:none; padding:0; } .hero,.card,.callout,.code-wrap,table { box-shadow:none; break-inside:avoid; } h2 { break-before:auto; } code,pre { color:#111827; } .code-wrap { background:#f8fafc; } .code-head { display:block; color:#111827; background:#e5e7eb; } p,td,li { color:#111827; } }
+  </style>
+</head>
+<body>
+<div class="layout">
+<aside>
+  <h2>Jenkins → EKS Runbook</h2>
+  <p>Junior DevOps step-by-step guide</p>
+  <nav class="toc">
+    <a href="#goal">0. Project goal</a>
+    <a href="#connections">1. How tools connect</a>
+    <a href="#values">2. Project values</a>
+    <a href="#branch">3. Git branch</a>
+    <a href="#iam">4. IAM user</a>
+    <a href="#eksctl">5. EKS with eksctl</a>
+    <a href="#access">6. EKS access entry</a>
+    <a href="#jenkins-empty">7. Empty Jenkins setup</a>
+    <a href="#container-tools">8. Tools in Jenkins container</a>
+    <a href="#manual-test">9. Manual AWS/EKS test</a>
+    <a href="#jenkins-creds">10. Jenkins credentials</a>
+    <a href="#webhook">11. GitHub webhook</a>
+    <a href="#multibranch">12. Multibranch pipeline</a>
+    <a href="#k8s-files">13. Kubernetes files</a>
+    <a href="#jenkinsfile">14. Jenkinsfile</a>
+    <a href="#run">15. Run & verify</a>
+    <a href="#troubleshooting">16. Troubleshooting</a>
+    <a href="#cleanup">17. Cleanup</a>
+    <a href="#checklist">18. Final checklist</a>
+  </nav>
+</aside>
+<main>
+  <section class="hero" id="goal">
+    <span class="eyebrow">CI/CD • Jenkins • GitHub • Docker Hub • AWS EKS</span>
+    <h1>Jenkins CI/CD to AWS EKS Runbook</h1>
+    <p class="subtitle">A polished, practical runbook for starting with an empty Jenkins server and finishing with a working deployment pipeline to Amazon EKS.</p>
+    <div class="flow">
+      <span class="pill">Local code</span><span class="arrow">→</span><span class="pill">GitHub</span><span class="arrow">→</span><span class="pill">Jenkins</span><span class="arrow">→</span><span class="pill">Docker Hub</span><span class="arrow">→</span><span class="pill">AWS EKS</span><span class="arrow">→</span><span class="pill">kubectl verify</span>
+    </div>
+  </section>
+
+  <h2 id="connections">1. How everything connects</h2>
+  <p>This project is not magic. It works because each tool has credentials, configuration, and a clear responsibility.</p>
+  <table>
+    <tr><th>Tool</th><th>Job</th><th>Connection</th></tr>
+    <tr><td>Local machine</td><td>You edit code and push it.</td><td>Uses Git remote pointing to GitHub.</td></tr>
+    <tr><td>GitHub</td><td>Stores code and branches.</td><td>Sends webhook events to Jenkins.</td></tr>
+    <tr><td>Jenkins</td><td>Runs CI/CD pipeline from Jenkinsfile.</td><td>Uses GitHub, Docker Hub, and AWS credentials.</td></tr>
+    <tr><td>Docker Hub</td><td>Stores application Docker images.</td><td>Jenkins pushes image tags here.</td></tr>
+    <tr><td>AWS IAM</td><td>Controls AWS permissions.</td><td>Dedicated IAM user lets Jenkins access EKS.</td></tr>
+    <tr><td>EKS</td><td>Runs Kubernetes cluster.</td><td>Jenkins and local kubectl both talk to the EKS API server.</td></tr>
+    <tr><td>kubectl</td><td>Remote control for Kubernetes.</td><td>Uses kubeconfig to know which cluster to contact.</td></tr>
+  </table>
+  <div class="callout good"><strong>Senior mental model</strong><p>Jenkins deploys to the remote EKS cluster. Your local terminal does not read Jenkins; it reads the same EKS cluster directly through kubeconfig.</p></div>
+
+  <h2 id="values">2. Project values used in this runbook</h2>
+  <div class="grid cols-2">
+    <div class="card"><h3>AWS / EKS</h3><div class="pathbox">AWS region: eu-central-1<br>EKS cluster: jennifer-demo-cluster<br>Node group: jennifer-demo-nodes<br>IAM user: jenkins-eks-deployer</div></div>
+    <div class="card"><h3>Git / Docker / Kubernetes</h3><div class="pathbox">GitHub branch: deploy-to-k8s<br>Docker image: mujuules01/demo-app<br>Deployment: java-maven-app<br>Service: java-maven-app-service</div></div>
+  </div>
+  <div class="callout warn"><strong>Replace placeholders</strong><p>Anywhere you see <code>YOUR_ACCOUNT_ID</code>, <code>YOUR_REPO_NAME</code>, or <code>YOUR_JENKINS_PUBLIC_IP</code>, replace it with your real value.</p></div>
+
+  <h2 id="branch">3. Create and use the deployment branch locally</h2>
+  <p>Use a separate branch for this Kubernetes deployment work. This keeps the deployment experiment clean and easy to manage.</p>
+  <div class="code-wrap"><div class="code-head"><span>bash</span><button onclick="copyCode(this)">Copy</button></div><pre><code>git fetch origin
+git checkout -b deploy-to-k8s origin/deploy-to-k8s
+git branch</code></pre></div>
+  <p><strong>Why:</strong> Jenkins will build this branch, so your Jenkinsfile and Kubernetes manifests must be pushed there.</p>
+
+  <h2 id="iam">4. Create a dedicated AWS IAM user for Jenkins</h2>
+  <p>Do not use your personal AWS admin user for Jenkins. Create a dedicated IAM user with limited permissions.</p>
+  <div class="step"><div class="num">1</div><div><h3>Create IAM user</h3><p>AWS Console path:</p><div class="pathbox">IAM → Users → Create user<br>User name: jenkins-eks-deployer<br>Console access: No</div></div></div>
+  <div class="step"><div class="num">2</div><div><h3>Add a limited IAM policy</h3><p>This policy allows Jenkins to describe only your EKS cluster. That is needed for <code>aws eks update-kubeconfig</code>.</p><div class="code-wrap"><div class="code-head"><span>json</span><button onclick="copyCode(this)">Copy</button></div><pre><code>{
+  &quot;Version&quot;: &quot;2012-10-17&quot;,
+  &quot;Statement&quot;: [
+    {
+      &quot;Sid&quot;: &quot;AllowDescribeSpecificEksCluster&quot;,
+      &quot;Effect&quot;: &quot;Allow&quot;,
+      &quot;Action&quot;: [
+        &quot;eks:DescribeCluster&quot;
+      ],
+      &quot;Resource&quot;: &quot;arn:aws:eks:eu-central-1:YOUR_ACCOUNT_ID:cluster/jennifer-demo-cluster&quot;
+    }
+  ]
+}</code></pre></div></div></div>
+  <div class="step"><div class="num">3</div><div><h3>Create access keys</h3><div class="pathbox">IAM → Users → jenkins-eks-deployer → Security credentials → Create access key<br>Save: Access Key ID + Secret Access Key</div></div></div>
+  <div class="callout info"><strong>Least privilege principle</strong><p>Start with only the permissions Jenkins needs. For this project, the IAM side needs <code>eks:DescribeCluster</code>. Kubernetes permissions are handled by EKS Access Entry later.</p></div>
+
+  <h2 id="eksctl">5. Create the EKS cluster with eksctl</h2>
+  <p>Create the cluster before adding the EKS Access Entry, because the cluster must exist first.</p>
+  <h3>5.1 Create cluster.yaml</h3>
+  <div class="code-wrap"><div class="code-head"><span>bash</span><button onclick="copyCode(this)">Copy</button></div><pre><code>nano cluster.yaml</code></pre></div>
+  <div class="code-wrap"><div class="code-head"><span>yaml</span><button onclick="copyCode(this)">Copy</button></div><pre><code>apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: jennifer-demo-cluster
+  region: eu-central-1
+  version: &quot;1.30&quot;
+
+managedNodeGroups:
+  - name: jennifer-demo-nodes
+    instanceType: t3.medium
+    desiredCapacity: 2
+    minSize: 1
+    maxSize: 3
+    volumeSize: 20
+    labels:
+      role: worker
+    tags:
+      nodegroup-role: worker</code></pre></div>
+  <h3>5.2 Create the cluster</h3>
+  <div class="code-wrap"><div class="code-head"><span>bash</span><button onclick="copyCode(this)">Copy</button></div><pre><code>eksctl create cluster -f cluster.yaml</code></pre></div>
+  <p><strong>Why:</strong> eksctl creates the EKS control plane, managed node group, EC2 worker nodes, and supporting AWS resources.</p>
+  <h3>5.3 Connect your local kubectl</h3>
+  <div class="code-wrap"><div class="code-head"><span>bash</span><button onclick="copyCode(this)">Copy</button></div><pre><code>aws eks update-kubeconfig \
+  --region eu-central-1 \
+  --name jennifer-demo-cluster
+
+kubectl get nodes
+kubectl get pods -A</code></pre></div>
+  <p><strong>Why:</strong> This lets your laptop talk to the EKS Kubernetes API server.</p>
+
+  <h2 id="access">6. Give Jenkins IAM user access inside EKS</h2>
+  <p>IAM permission lets Jenkins call AWS APIs. EKS Access Entry lets Jenkins use Kubernetes API through kubectl.</p>
+  <div class="pathbox">EKS → Clusters → jennifer-demo-cluster → Access → Create access entry<br>Principal ARN: arn:aws:iam::YOUR_ACCOUNT_ID:user/jenkins-eks-deployer<br>Type: Standard</div>
+  <h3>Associate an access policy</h3>
+  <div class="pathbox">Policy: AmazonEKSClusterAdminPolicy<br>Access scope: Cluster</div>
+  <div class="callout warn"><strong>Learning/demo scope</strong><p>Cluster admin is acceptable for a learning lab. In production, reduce this to namespace-level access and only the Kubernetes actions Jenkins needs.</p></div>
+
+  <h2 id="jenkins-empty">7. Prepare Jenkins from an empty server</h2>
+  <h3>7.1 Unlock Jenkins</h3>
+  <p>Open Jenkins in your browser:</p>
+  <div class="pathbox">http://YOUR_JENKINS_PUBLIC_IP:8080</div>
+  <p>Get the initial password:</p>
+  <div class="code-wrap"><div class="code-head"><span>bash</span><button onclick="copyCode(this)">Copy</button></div><pre><code>docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword</code></pre></div>
+  <h3>7.2 Install plugins</h3>
+  <div class="grid cols-3">
+    <div class="card"><h4>GitHub + Git</h4><p>Git, Git client, GitHub, GitHub Branch Source</p></div>
+    <div class="card"><h4>Pipeline</h4><p>Pipeline, Pipeline: Multibranch, Pipeline: Stage View</p></div>
+    <div class="card"><h4>Credentials + Docker</h4><p>Credentials, Credentials Binding, Docker Pipeline, Docker Commons, Basic Branch Build Strategies</p></div>
+  </div>
+  <p><strong>Why:</strong> Jenkins needs these plugins to read GitHub branches, load Jenkinsfiles, inject secrets, and run pipeline stages.</p>
+  <h3>7.3 Configure Maven tool</h3>
+  <div class="pathbox">Manage Jenkins → Tools → Maven installations<br>Name: maven-3.9<br>Install automatically: enabled</div>
+  <p><strong>Why:</strong> Your Jenkinsfile uses <code>tools { maven 'maven-3.9' }</code>, so the tool name must match exactly.</p>
+
+  <h2 id="container-tools">8. Install AWS CLI and kubectl inside the Jenkins container</h2>
+  <p>Because Jenkins runs inside Docker, the pipeline shell commands run inside the Jenkins container. Tools must exist there.</p>
+  <div class="code-wrap"><div class="code-head"><span>bash</span><button onclick="copyCode(this)">Copy</button></div><pre><code>docker exec -it -u 0 jenkins bash</code></pre></div>
+  <h3>8.1 Install base packages</h3>
+  <div class="code-wrap"><div class="code-head"><span>bash</span><button onclick="copyCode(this)">Copy</button></div><pre><code>apt update
+apt install -y curl unzip ca-certificates</code></pre></div>
+  <h3>8.2 Install AWS CLI</h3>
+  <div class="code-wrap"><div class="code-head"><span>bash</span><button onclick="copyCode(this)">Copy</button></div><pre><code>curl &quot;https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip&quot; -o &quot;awscliv2.zip&quot;
+unzip awscliv2.zip
+./aws/install
+aws --version</code></pre></div>
+  <h3>8.3 Disable AWS CLI pager</h3>
+  <div class="code-wrap"><div class="code-head"><span>bash</span><button onclick="copyCode(this)">Copy</button></div><pre><code>export AWS_PAGER=&quot;&quot;
+aws configure set cli_pager &quot;&quot;</code></pre></div>
+  <p><strong>Why:</strong> This prevents the <code>No such file or directory: less</code> AWS CLI pager error in Jenkins containers.</p>
+  <h3>8.4 Install kubectl</h3>
+  <div class="code-wrap"><div class="code-head"><span>bash</span><button onclick="copyCode(this)">Copy</button></div><pre><code>curl -LO &quot;https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl&quot;
+install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+kubectl version --client</code></pre></div>
+
+  <h2 id="manual-test">9. Manual AWS and EKS test inside Jenkins container</h2>
+  <p>This is for debugging and learning. The real Jenkinsfile will use Jenkins UI credentials.</p>
+  <h3>9.1 Configure AWS CLI manually</h3>
+  <div class="code-wrap"><div class="code-head"><span>bash</span><button onclick="copyCode(this)">Copy</button></div><pre><code>aws configure</code></pre></div>
+  <div class="pathbox">AWS Access Key ID: access key of jenkins-eks-deployer<br>AWS Secret Access Key: secret key of jenkins-eks-deployer<br>Default region name: eu-central-1<br>Default output format: json</div>
+  <h3>9.2 Test AWS identity</h3>
+  <div class="code-wrap"><div class="code-head"><span>bash</span><button onclick="copyCode(this)">Copy</button></div><pre><code>export AWS_PAGER=&quot;&quot;
+aws sts get-caller-identity</code></pre></div>
+  <h3>9.3 Create kubeconfig inside Jenkins container</h3>
+  <div class="code-wrap"><div class="code-head"><span>bash</span><button onclick="copyCode(this)">Copy</button></div><pre><code>aws eks update-kubeconfig \
+  --region eu-central-1 \
+  --name jennifer-demo-cluster</code></pre></div>
+  <p>This creates kubeconfig here:</p>
+  <div class="pathbox">/root/.kube/config</div>
+  <h3>9.4 Test Kubernetes access</h3>
+  <div class="code-wrap"><div class="code-head"><span>bash</span><button onclick="copyCode(this)">Copy</button></div><pre><code>kubectl get nodes
+kubectl get pods -A</code></pre></div>
+  <div class="callout good"><strong>Key checkpoint</strong><p>Do not continue to Jenkinsfile deployment until <code>kubectl get nodes</code> works inside the Jenkins container.</p></div>
+
+  <h2 id="jenkins-creds">10. Add Jenkins credentials</h2>
+  <p>Jenkins UI credentials are used by the real pipeline. They are different from <code>aws configure</code> files inside the container.</p>
+  <div class="pathbox">Manage Jenkins → Credentials → System → Global credentials → Add Credentials</div>
+  <table>
+    <tr><th>Purpose</th><th>Kind</th><th>ID</th><th>Value</th></tr>
+    <tr><td>GitHub</td><td>Username with password</td><td><code>github-credentials</code></td><td>GitHub username + Personal Access Token</td></tr>
+    <tr><td>Docker Hub</td><td>Username with password</td><td><code>docker-hub-repo</code></td><td>Docker Hub username + token/password</td></tr>
+    <tr><td>AWS Access Key ID</td><td>Secret text</td><td><code>aws-access-key-id</code></td><td>Access Key ID of <code>jenkins-eks-deployer</code></td></tr>
+    <tr><td>AWS Secret Access Key</td><td>Secret text</td><td><code>aws-secret-access-key</code></td><td>Secret Access Key of <code>jenkins-eks-deployer</code></td></tr>
+  </table>
+  <div class="callout info"><strong>Important difference</strong><p><code>aws configure</code> is for manual testing inside the container. Jenkins UI credentials are for the Jenkinsfile using <code>withCredentials()</code>.</p></div>
+
+  <h2 id="webhook">11. Configure GitHub webhook</h2>
+  <p>GitHub needs to notify Jenkins when code is pushed.</p>
+  <div class="pathbox">GitHub repository → Settings → Webhooks → Add webhook<br>Payload URL: http://YOUR_JENKINS_PUBLIC_IP:8080/github-webhook/<br>Content type: application/json<br>Events: Just the push event<br>Active: checked</div>
+  <p><strong>Why:</strong> After you push to GitHub, GitHub sends an event to Jenkins. Jenkins then scans/builds the correct branch.</p>
+
+  <h2 id="multibranch">12. Create Jenkins Multibranch Pipeline</h2>
+  <div class="pathbox">Jenkins → New Item → Multibranch Pipeline<br>Name: java-maven-app-eks</div>
+  <h3>Branch source</h3>
+  <div class="pathbox">Source: GitHub<br>Repository HTTPS URL: https://github.com/mjulestek/YOUR_REPO_NAME.git<br>Credentials: github-credentials<br>Behavior: Discover branches<br>Branch filter: deploy-to-k8s<br>Script path: Jenkinsfile</div>
+  <p><strong>Why:</strong> Jenkins will build only the <code>deploy-to-k8s</code> branch and read the <code>Jenkinsfile</code> from that branch.</p>
+
+  <h2 id="k8s-files">13. Create Kubernetes files in the repo</h2>
+  <h3>13.1 Create the folder</h3>
+  <div class="code-wrap"><div class="code-head"><span>bash</span><button onclick="copyCode(this)">Copy</button></div><pre><code>mkdir -p k8s</code></pre></div>
+  <h3>13.2 deployment.yaml</h3>
+  <div class="code-wrap"><div class="code-head"><span>bash</span><button onclick="copyCode(this)">Copy</button></div><pre><code>nano k8s/deployment.yaml</code></pre></div>
+  <div class="code-wrap"><div class="code-head"><span>yaml</span><button onclick="copyCode(this)">Copy</button></div><pre><code>apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: java-maven-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: java-maven-app
+  template:
+    metadata:
+      labels:
+        app: java-maven-app
+    spec:
+      containers:
+      - name: java-maven-app
+        image: mujuules01/demo-app:latest
+        ports:
+        - containerPort: 8080</code></pre></div>
+  <p><strong>Why:</strong> The Deployment runs your app, keeps two pods alive, and lets Kubernetes restart failed pods.</p>
+  <h3>13.3 service.yaml</h3>
+  <div class="code-wrap"><div class="code-head"><span>bash</span><button onclick="copyCode(this)">Copy</button></div><pre><code>nano k8s/service.yaml</code></pre></div>
+  <div class="code-wrap"><div class="code-head"><span>yaml</span><button onclick="copyCode(this)">Copy</button></div><pre><code>apiVersion: v1
+kind: Service
+metadata:
+  name: java-maven-app-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: java-maven-app
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8080</code></pre></div>
+  <p><strong>Why:</strong> The Service exposes the pods. <code>type: LoadBalancer</code> asks AWS to create an external load balancer.</p>
+  <h3>13.4 Commit and push</h3>
+  <div class="code-wrap"><div class="code-head"><span>bash</span><button onclick="copyCode(this)">Copy</button></div><pre><code>git add k8s/
+git commit -m &quot;add kubernetes manifests&quot;
+git push origin deploy-to-k8s</code></pre></div>
+
+  <h2 id="jenkinsfile">14. Final Jenkinsfile</h2>
+  <p>Replace <code>YOUR_REPO_NAME</code> with your real GitHub repository name.</p>
+  <div class="code-wrap"><div class="code-head"><span>groovy</span><button onclick="copyCode(this)">Copy</button></div><pre><code>#!/usr/bin/env groovy
+
+pipeline {
+    agent any
+
+    tools {
+        maven &#x27;maven-3.9&#x27;
+    }
+
+    environment {
+        DOCKER_REPO = &#x27;mujuules01/demo-app&#x27;
+        GITHUB_REPO = &#x27;YOUR_REPO_NAME&#x27;
+        GITHUB_REPO_OWNER = &#x27;mjulestek&#x27;
+        GIT_BRANCH_TO_PUSH = &#x27;deploy-to-k8s&#x27;
+        AWS_REGION = &#x27;eu-central-1&#x27;
+        EKS_CLUSTER_NAME = &#x27;jennifer-demo-cluster&#x27;
+    }
+
+    stages {
+        stage(&#x27;increment version&#x27;) {
+            steps {
+                script {
+                    echo &#x27;incrementing the version...&#x27;
+
+                    sh &#x27;mvn build-helper:parse-version versions:set -DnewVersion=\\${parsedVersion.majorVersion}.\\${parsedVersion.minorVersion}.\\${parsedVersion.nextIncrementalVersion} versions:commit&#x27;
+
+                    env.IMAGE_TAG = sh(
+                        script: &#x27;mvn help:evaluate -Dexpression=project.version -q -DforceStdout&#x27;,
+                        returnStdout: true
+                    ).trim()
+
+                    env.DOCKER_IMAGE = &quot;${DOCKER_REPO}:${IMAGE_TAG}&quot;
+
+                    echo &quot;New app version is: ${IMAGE_TAG}&quot;
+                    echo &quot;Docker image will be: ${DOCKER_IMAGE}&quot;
+                }
+            }
+        }
+
+        stage(&#x27;build app&#x27;) {
+            steps {
+                script {
+                    echo &#x27;building the application...&#x27;
+                    sh &#x27;mvn package&#x27;
+                }
+            }
+        }
+
+        stage(&#x27;build image&#x27;) {
+            steps {
+                script {
+                    echo &#x27;building the docker image...&#x27;
+
+                    withCredentials([usernamePassword(credentialsId: &#x27;docker-hub-repo&#x27;, passwordVariable: &#x27;DOCKER_PASS&#x27;, usernameVariable: &#x27;DOCKER_USER&#x27;)]) {
+                        sh &#x27;docker build -t $DOCKER_IMAGE .&#x27;
+                        sh &#x27;echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin&#x27;
+                        sh &#x27;docker push $DOCKER_IMAGE&#x27;
+                    }
+                }
+            }
+        }
+
+        stage(&#x27;deploy to EKS&#x27;) {
+            steps {
+                script {
+                    echo &#x27;deploying application to EKS...&#x27;
+
+                    withCredentials([
+                        string(credentialsId: &#x27;aws-access-key-id&#x27;, variable: &#x27;AWS_ACCESS_KEY_ID&#x27;),
+                        string(credentialsId: &#x27;aws-secret-access-key&#x27;, variable: &#x27;AWS_SECRET_ACCESS_KEY&#x27;)
+                    ]) {
+                        sh &#x27;export AWS_PAGER=&quot;&quot; &amp;&amp; aws sts get-caller-identity&#x27;
+                        sh &#x27;export AWS_PAGER=&quot;&quot; &amp;&amp; aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME&#x27;
+                        sh &#x27;kubectl get nodes&#x27;
+                        sh &#x27;kubectl apply -f k8s/&#x27;
+                        sh &#x27;kubectl set image deployment/java-maven-app java-maven-app=$DOCKER_IMAGE&#x27;
+                        sh &#x27;kubectl rollout status deployment/java-maven-app&#x27;
+                    }
+                }
+            }
+        }
+
+        stage(&#x27;commit version update to git repo&#x27;) {
+            steps {
+                script {
+                    echo &#x27;commit version update to git repo...&#x27;
+
+                    withCredentials([usernamePassword(credentialsId: &#x27;github-credentials&#x27;, passwordVariable: &#x27;GITHUB_TOKEN&#x27;, usernameVariable: &#x27;GITHUB_USER&#x27;)]) {
+                        sh &#x27;git config --global user.email &quot;jenkins@example.com&quot;&#x27;
+                        sh &#x27;git config --global user.name &quot;jenkins&quot;&#x27;
+
+                        sh &#x27;git status&#x27;
+                        sh &#x27;git branch&#x27;
+
+                        sh &#x27;git remote set-url origin https://$GITHUB_USER:$GITHUB_TOKEN@github.com/$GITHUB_REPO_OWNER/$GITHUB_REPO.git&#x27;
+                        sh &#x27;git remote -v&#x27;
+
+                        sh &#x27;git fetch origin $GIT_BRANCH_TO_PUSH&#x27;
+                        sh &#x27;git checkout -B $GIT_BRANCH_TO_PUSH origin/$GIT_BRANCH_TO_PUSH&#x27;
+
+                        sh &#x27;git add .&#x27;
+                        sh &#x27;git commit -m &quot;jenkins increment version [skip ci]&quot; || true&#x27;
+                        sh &#x27;git pull --rebase origin $GIT_BRANCH_TO_PUSH&#x27;
+                        sh &#x27;git push origin HEAD:$GIT_BRANCH_TO_PUSH&#x27;
+                    }
+                }
+            }
+        }
+    }
+}</code></pre></div>
+  <div class="grid cols-2">
+    <div class="card"><h3>What the pipeline builds</h3><p>Maven package → Docker image → Docker Hub image tag.</p></div>
+    <div class="card"><h3>What the pipeline deploys</h3><p>Kubernetes manifests → updated Deployment image → rollout status.</p></div>
+  </div>
+
+  <h2 id="run">15. Run and verify the pipeline</h2>
+  <h3>15.1 Push your final changes</h3>
+  <div class="code-wrap"><div class="code-head"><span>bash</span><button onclick="copyCode(this)">Copy</button></div><pre><code>git add .
+git commit -m &quot;add Jenkins EKS deployment pipeline&quot;
+git push origin deploy-to-k8s</code></pre></div>
+  <h3>15.2 Expected automation flow</h3>
+  <div class="pathbox">GitHub receives push<br>GitHub webhook notifies Jenkins<br>Jenkins builds deploy-to-k8s branch<br>Jenkins runs Maven build<br>Jenkins builds Docker image<br>Jenkins pushes image to Docker Hub<br>Jenkins deploys image to EKS<br>Kubernetes starts pods</div>
+  <h3>15.3 Verify from your local terminal</h3>
+  <div class="code-wrap"><div class="code-head"><span>powershell</span><button onclick="copyCode(this)">Copy</button></div><pre><code>kubectl config current-context
+kubectl get nodes
+kubectl get deploy
+kubectl get pods
+kubectl get svc
+kubectl get svc java-maven-app-service</code></pre></div>
+  <p><strong>Why your local terminal sees it:</strong> your local kubeconfig points to the same remote EKS cluster that Jenkins deployed to.</p>
+
+  <h2 id="troubleshooting">16. Troubleshooting</h2>
+  <div class="grid cols-2">
+    <div class="card"><h3>AWS pager error</h3><p>Error: <code>No such file or directory: less</code></p><div class="code-wrap"><div class="code-head"><span>bash</span><button onclick="copyCode(this)">Copy</button></div><pre><code>export AWS_PAGER=&quot;&quot;
+aws configure set cli_pager &quot;&quot;</code></pre></div></div>
+    <div class="card"><h3>Jenkins cannot find AWS credentials</h3><p>Check IDs exactly match:</p><div class="pathbox">aws-access-key-id<br>aws-secret-access-key</div></div>
+    <div class="card"><h3>kubectl fails in Jenkins</h3><div class="code-wrap"><div class="code-head"><span>bash</span><button onclick="copyCode(this)">Copy</button></div><pre><code>aws sts get-caller-identity
+aws eks update-kubeconfig --region eu-central-1 --name jennifer-demo-cluster
+kubectl get nodes</code></pre></div><p>Also confirm EKS Access Entry for <code>jenkins-eks-deployer</code>.</p></div>
+    <div class="card"><h3>Docker login fails</h3><p>Check Docker credential ID:</p><div class="pathbox">docker-hub-repo</div></div>
+    <div class="card"><h3>Git push rejected</h3><div class="code-wrap"><div class="code-head"><span>bash</span><button onclick="copyCode(this)">Copy</button></div><pre><code>git fetch origin $GIT_BRANCH_TO_PUSH
+git checkout -B $GIT_BRANCH_TO_PUSH origin/$GIT_BRANCH_TO_PUSH
+git pull --rebase origin $GIT_BRANCH_TO_PUSH
+git push origin HEAD:$GIT_BRANCH_TO_PUSH</code></pre></div></div>
+    <div class="card"><h3>Pod ImagePullBackOff</h3><div class="code-wrap"><div class="code-head"><span>bash</span><button onclick="copyCode(this)">Copy</button></div><pre><code>kubectl describe pod POD_NAME</code></pre></div><p>Check image name, image tag, Docker Hub repo visibility, and whether the image was pushed.</p></div>
+  </div>
+
+  <h2 id="cleanup">17. Cleanup when finished</h2>
+  <p>EKS costs money. Delete the cluster when you finish practicing.</p>
+  <div class="code-wrap"><div class="code-head"><span>bash</span><button onclick="copyCode(this)">Copy</button></div><pre><code>eksctl delete cluster \
+  --name jennifer-demo-cluster \
+  --region eu-central-1</code></pre></div>
+  <h3>Verify cleanup</h3>
+  <div class="code-wrap"><div class="code-head"><span>bash</span><button onclick="copyCode(this)">Copy</button></div><pre><code>eksctl get cluster --region eu-central-1
+aws ec2 describe-instances --region eu-central-1 --filters &quot;Name=tag:eks:cluster-name,Values=jennifer-demo-cluster&quot; --query &quot;Reservations[*].Instances[*].[InstanceId,State.Name]&quot; --output table
+aws elbv2 describe-load-balancers --region eu-central-1</code></pre></div>
+
+  <h2 id="checklist">18. Final junior DevOps checklist</h2>
+  <ul class="checklist">
+    <li>Jenkins server running</li><li>Jenkins unlocked</li><li>Required plugins installed</li><li>Maven tool named <code>maven-3.9</code></li><li>Dedicated IAM user created</li><li>IAM policy attached</li><li>EKS cluster created with eksctl</li><li>EKS Access Entry created</li><li>kubectl works locally</li><li>AWS CLI installed in Jenkins container</li><li>kubectl installed in Jenkins container</li><li>AWS pager disabled</li><li>Manual kubeconfig works in Jenkins container</li><li>GitHub credentials added</li><li>Docker Hub credentials added</li><li>AWS Secret Text credentials added</li><li>GitHub webhook configured</li><li>Multibranch Pipeline created</li><li>Branch filter set to <code>deploy-to-k8s</code></li><li><code>k8s/deployment.yaml</code> added</li><li><code>k8s/service.yaml</code> added</li><li>Jenkinsfile pushed</li><li>Pipeline succeeds</li><li>Local kubectl confirms pods running</li>
+  </ul>
+
+  <div class="footer">
+    <p><strong>Final mental model:</strong> GitHub stores the code, Jenkins automates the build and deployment, Docker Hub stores the image, AWS EKS runs the containers, and kubectl verifies the real remote Kubernetes state.</p>
+    <p>References: Jenkins Pipeline as Code, Jenkins Multibranch Pipeline, AWS EKS kubeconfig, AWS IAM best practices, AWS EKS Access Entries, AWS EKS eksctl getting started, AWS kubectl setup.</p>
+  </div>
+</main>
+</div>
+<button class="print" onclick="window.print()">Print / Save PDF</button>
+<script>
+function copyCode(btn) {
+  const code = btn.closest('.code-wrap').querySelector('code').innerText;
+  navigator.clipboard.writeText(code).then(() => {
+    const old = btn.innerText; btn.innerText = 'Copied';
+    setTimeout(() => btn.innerText = old, 1200);
+  });
+}
+</script>
+</body>
+</html>
