@@ -1,86 +1,46 @@
-#!/usr/bin/env groovy
+def gv
 
-pipeline {
+pipeline {   
     agent any
-
     tools {
-        maven 'maven-3.9'
+        maven 'Maven'
     }
-
-    environment {
-        DOCKER_REPO = 'mujuules01/demo-app'
-        GITHUB_REPO = 'java-maven-app-eks'
-        GITHUB_REPO_OWNER = 'mjulestek'
-        GIT_BRANCH_TO_PUSH = 'main'
-    }
-
     stages {
-        stage('increment version') {
+        stage("init") {
             steps {
                 script {
-                    echo 'incrementing the version...'
-                    sh 'mvn build-helper:parse-version versions:set -DnewVersion=\\${parsedVersion.majorVersion}.\\${parsedVersion.minorVersion}.\\${parsedVersion.nextIncrementalVersion} versions:commit'
+                    echo 'Initializing pipeline...'
+                }
+            }
+        }
+        stage("build jar") {
+            steps {
+                script {
+                    echo 'Building JAR file...'
 
-                    env.IMAGE_TAG = sh(script: 'mvn help:evaluate -Dexpression=project.version -q -DforceStdout', returnStdout: true).trim()
-                    env.DOCKER_IMAGE = "${DOCKER_REPO}:${IMAGE_TAG}"
-
-                    echo "New app version is: ${IMAGE_TAG}"
-                    echo "Docker image will be: ${DOCKER_IMAGE}"
                 }
             }
         }
 
-        stage('build app') {
+        stage("build image") {
             steps {
                 script {
-                    echo 'building the application...'
-                    sh 'mvn package'
+                    echo 'build docker image...'
                 }
             }
         }
 
-        stage('build image') {
+        stage("deploy") {
+            environment {
+                AWS_ACCESS_KEY_ID = credentials('jenkins-aws-access-key-id')
+                AWS_SECRET_ACCESS_KEY = credentials('jenkins-aws-secret-access-key')
+            }
             steps {
                 script {
-                    echo 'building the docker image...'
-                    withCredentials([usernamePassword(credentialsId: 'docker-hub-repo', passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER')]) {
-                        sh 'docker build -t $DOCKER_IMAGE .'
-                        sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
-                        sh 'docker push $DOCKER_IMAGE'
-                    }
+                    echo 'Deploying application...'
+                    sh 'kubectl create deployment nginx-deployment --image=nginx'
                 }
             }
-        }
-
-        stage('deploy') {
-            steps {
-                script {
-                    echo 'deploying the application...'
-                }
-            }
-        }
-
-        stage('commit version update to git repo') {
-            steps {
-                script {
-                    echo 'commit version update to git repo...'
-                    withCredentials([usernamePassword(credentialsId: 'github-credentials', passwordVariable: 'GITHUB_TOKEN', usernameVariable: 'GITHUB_USER')]) {
-                        sh 'git config --global user.email "jenkins@example.com"'
-                        sh 'git config --global user.name "jenkins"'
-
-                        sh 'git status'
-                        sh 'git branch'
-
-                        sh 'git remote set-url origin https://$GITHUB_USER:$GITHUB_TOKEN@github.com/$GITHUB_REPO_OWNER/$GITHUB_REPO.git'
-                        sh 'git remote -v'
-
-                        sh 'git add .'
-                        sh 'git commit -m "jenkins increment version [skip ci]" || true'
-                        sh 'git push origin HEAD:$GIT_BRANCH_TO_PUSH'
-                    }
-                }
-            }
-        }
-
+        }               
     }
-}
+} 
