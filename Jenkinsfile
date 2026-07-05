@@ -9,9 +9,9 @@ pipeline {
 
     environment {
         DOCKER_REPO = 'mujuules01/demo-app'
-        GITHUB_REPO = 'java-maven-app-master-EKS'
+        GITHUB_REPO = 'java-maven-app-eks'
         GITHUB_REPO_OWNER = 'mjulestek'
-        GIT_BRANCH_TO_PUSH = 'jenkins-jobs'
+        GIT_BRANCH_TO_PUSH = 'main'
     }
 
     stages {
